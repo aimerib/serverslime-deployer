@@ -1,0 +1,7 @@
+---
+user: some_user
+settings_server_user: some_remote_user
+vnc_password: vnc_password
+settings_server_user_password: settings_server_password
+user_home_folder: /home/{{user}}
+vino_desktop_path: "{{user_home_folder}}/.config/autostart/vino-server.desktop"

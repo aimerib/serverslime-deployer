@@ -1,0 +1,4 @@
+all:
+  hosts:
+    x.x.x.x:
+      ansible_ssh_user: some_user

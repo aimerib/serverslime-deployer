@@ -1,0 +1,107 @@
+#################################################
+# Serverslime settings configuration
+#################################################
+---
+- hosts: all
+  become: true
+  vars_files:
+    - vars/default.yml
+
+  tasks:
+
+    - name: change default shell
+      shell: chsh -s /bin/zsh "{{ user }}"
+    - name: recreate default user folders
+      file:
+        path: "{{user_home_folder}}/{{item}}"
+        state: directory
+        owner: "{{user}}"
+        group: "{{user}}"
+      loop:
+        - Downloads
+        - Documents
+        - Desktop
+        - Music
+        - Pictures
+        - Videos
+    - name: create autostart folder
+      file:
+         path: "{{vino_desktop_path | dirname}}"
+         state: directory
+         owner: "{{user}}"
+         group: "{{user}}"
+    - name: populate vino autostart file
+      copy:
+        dest: "{{vino_desktop_path}}"
+        owner: "{{user}}"
+        group: "{{user}}"
+        content: |
+          [Desktop Entry]
+          Type=Application
+          Name=Vino VNC server
+          Exec=/usr/lib/vino/vino-server
+          NoDisplay=true
+    - name: configure autologin
+      args:
+        warn: false
+      shell: |
+        sed -i -e 's/#WaylandEnable=false/WaylandEnable=false/g' /etc/gdm3/custom.conf
+        sed -E -i -e 's/^#(\s*AutomaticLogin)/\1/g' /etc/gdm3/custom.conf
+        sed -E -i -e 's/AutomaticLogin = ([a-zA-Z\s].*$)/AutomaticLogin = "{{user}}"/g' /etc/gdm3/custom.conf
+    - name: reboot after autologin settings are applied
+      reboot:
+    - name: configure vino
+      become_user: "{{user}}"
+      args:
+        executable: /bin/bash
+      shell: |
+        # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        # initialize values
+        # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        vino_password_binary="$(echo -n "{{vnc_password}}" | base64)"
+
+        declare -A settings
+        settings[alternative-port]="uint16 5900"
+        settings[authentication-methods]="['vnc']"
+        settings[disable-background]=false
+        settings[disable-xdamage]=false
+        settings[icon-visibility]="'never'"
+        settings[lock-screen-on-disconnect]=false
+        settings[mailto]="''"
+        settings[network-interface]="''"
+        settings[notify-on-connect]=false
+        settings[prompt-enabled]=false
+        settings[require-encryption]=false
+        settings[use-alternative-port]=false
+        settings[use-upnp]=false
+        settings[view-only]=false
+        settings[vnc-password]="'$vino_password_binary'"
+
+        # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        # main
+        # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        # Make sure we are performing these operations on the remote display.
+        export DISPLAY=:0
+
+        # Loop through settings and configure vino.
+        for setting in "${!settings[@]}" ; do
+            current_value="$(gsettings get org.gnome.Vino "$setting")"
+            to_value="${settings[$setting]}"
+            if [[ "$current_value" != "$to_value" ]] ; then
+                printf "changing Vino's ${setting} from ${current_value} to ${settings[$setting]}\n" >&2
+                DISPLAY=:0 gsettings set org.gnome.Vino "$setting" ${settings[$setting]}
+            fi
+        done
+    - name: sync settings
+      ansible.builtin.expect:
+        timeout: null
+        command: |
+          rsync -arv "{{settings_server_user}}"@settings-server.local:/home/"{{settings_server_user}}"/settings/ /home/"{{user}}"
+        responses:
+          (?i)Are you sure you want to continue connecting (yes/no/[fingerprint])?: "yes"
+          (?i)password: "{{settings_server_user_password}}"
+    - name: install code-server
+      remote_user: "{{user}}"
+      shell: curl -fsSL https://code-server.dev/install.sh | sh && sudo systemctl enable --now code-server@"{{user}}"
+      args:
+        warn: no

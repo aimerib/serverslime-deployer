@@ -1,0 +1,5 @@
+# Ignore ansible
+.ansible
+*.iso
+inventory.yml
+vars/default.yml
