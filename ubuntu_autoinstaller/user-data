@@ -161,6 +161,7 @@ autoinstall:
     - librsvg2-dev
     - libssl-dev
     - libwebkit2gtk-4.0-dev
+    - patchelf
     - mosh
     - neovim
     - nodejs
