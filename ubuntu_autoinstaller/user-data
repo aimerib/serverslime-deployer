@@ -6,8 +6,8 @@ autoinstall:
     layout: us
     variant: ''
   identity:
-    hostname: some-hostname
-    username: some-user
+    hostname: <some-hostname>
+    username: <some-user>
     password: "generate one with mkpasswd -m sha-512 <password> (needs package 'whois')"
   storage:
     layout:
@@ -174,5 +174,5 @@ autoinstall:
   user-data:
     timezone: America/New_York
   late-commands:
-    - echo 'some-user ALL=(ALL) NOPASSWD:ALL' > /target/etc/sudoers.d/ubuntu
+    - echo '<some-user> ALL=(ALL) NOPASSWD:ALL' > /target/etc/sudoers.d/<some-user>
     - poweroff -p
